@@ -14,77 +14,87 @@
   </head>
   <body>
     <div class="app">
+      <!-- ── Header ──────────────────────────────────────────────── -->
       <header class="topbar">
-        <div>
+        <div class="topbar-left">
           <p class="eyebrow">Pulse Atlas</p>
           <h1>Global Conflict Observatory</h1>
-          <p class="subtitle">
-            A strategic, real-time view of active conflicts, humanitarian risk, and geopolitical
-            hotspots.
-          </p>
         </div>
-        <div class="status">
-          <div>
-            <span class="label">Active theaters</span>
-            <strong id="activeCount">0</strong>
+        <div class="topbar-right">
+          <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input id="searchInput" type="text" placeholder="Search conflicts, actors, regions..." />
           </div>
-          <div>
-            <span class="label">High risk</span>
-            <strong id="highRiskCount">0</strong>
-          </div>
-          <button id="resetBtn" class="ghost">Reset filters</button>
+          <button id="resetBtn" class="ghost-btn">Reset</button>
         </div>
       </header>
 
+      <!-- ── Stats bar ───────────────────────────────────────────── -->
+      <section class="stats-bar">
+        <div class="stat-card">
+          <span class="stat-label">Active theaters</span>
+          <span class="stat-value" id="statTheaters">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">High risk</span>
+          <span class="stat-value" id="statHighRisk">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">People displaced</span>
+          <span class="stat-value" id="statDisplaced">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Est. casualties</span>
+          <span class="stat-value" id="statCasualties">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Composite risk index</span>
+          <span class="stat-value" id="statRiskIndex">0</span>
+        </div>
+      </section>
+
+      <!-- ── Main layout ─────────────────────────────────────────── -->
       <main class="layout">
-        <section class="panel">
-          <div class="panel-header">
-            <h2>Operational Filters</h2>
-            <p>Refine the map, risk scores, and live narrative feed.</p>
-          </div>
-          <div class="filters">
-            <label>
-              Region
-              <select id="regionFilter"></select>
-            </label>
-            <label>
-              Intensity
-              <select id="intensityFilter"></select>
-            </label>
-            <label>
-              Status
-              <select id="statusFilter"></select>
-            </label>
-            <label>
-              Timeline
-              <input id="timelineFilter" type="range" min="0" max="12" value="12" />
-              <span id="timelineLabel">Last 12 months</span>
-            </label>
-          </div>
-
-          <div class="risk-summary">
-            <div>
-              <h3>Risk overview</h3>
-              <p>Calculated by severity, escalation probability, and civilian exposure.</p>
-            </div>
-            <div class="score">
-              <span>Composite risk index</span>
-              <strong id="riskIndex">0</strong>
+        <!-- Left: Filters + Feed -->
+        <aside class="panel">
+          <div class="panel-section">
+            <h2>Filters</h2>
+            <div class="filters">
+              <label>
+                <span>Region</span>
+                <select id="regionFilter"></select>
+              </label>
+              <label>
+                <span>Intensity</span>
+                <select id="intensityFilter"></select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select id="statusFilter"></select>
+              </label>
+              <label>
+                <span>Timeline</span>
+                <input id="timelineFilter" type="range" min="3" max="48" value="48" step="3" />
+                <span class="range-label" id="timelineLabel">All time</span>
+              </label>
             </div>
           </div>
 
-          <div class="feed">
-            <h3>Live narrative feed</h3>
+          <div class="panel-section feed-section">
+            <h2>Live intelligence feed</h2>
             <ul id="narrativeFeed"></ul>
           </div>
-        </section>
+        </aside>
 
-        <section class="map-section">
+        <!-- Center: Map + Table -->
+        <section class="center">
           <div class="map-card">
             <div class="map-header">
               <div>
                 <h2>Conflict map</h2>
-                <p>Clusters indicate theaters with overlapping humanitarian impacts.</p>
+                <p class="muted">Click markers for detailed analysis. Dashed lines show linked theaters.</p>
               </div>
               <div class="legend">
                 <span><span class="dot high"></span>High</span>
@@ -98,21 +108,75 @@
           <div class="table-card">
             <div class="table-header">
               <h2>Priority watchlist</h2>
-              <p>Sorted by composite risk score.</p>
+              <p class="muted">Click any row to inspect. Click column headers to sort.</p>
             </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Theater</th>
-                  <th>Risk</th>
-                  <th>Status</th>
-                  <th>Updated</th>
-                </tr>
-              </thead>
-              <tbody id="watchlist"></tbody>
-            </table>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-sort="name">Theater</th>
+                    <th data-sort="risk" class="sort-active">Risk</th>
+                    <th data-sort="status">Status</th>
+                    <th>Trend (12 mo)</th>
+                    <th data-sort="displaced">Displaced</th>
+                    <th data-sort="updated">Updated</th>
+                  </tr>
+                </thead>
+                <tbody id="watchlist"></tbody>
+              </table>
+            </div>
           </div>
         </section>
+
+        <!-- Right: Detail panel (slides in) -->
+        <aside id="detailPanel" class="detail-panel">
+          <button id="detailClose" class="detail-close" aria-label="Close">&times;</button>
+
+          <div class="detail-top">
+            <h2 id="detailName"></h2>
+            <span class="detail-region" id="detailRegion"></span>
+            <div id="detailStatus"></div>
+          </div>
+
+          <div class="detail-gauge-wrap">
+            <div class="detail-gauge" id="detailGauge">
+              <div class="gauge-fill"></div>
+            </div>
+            <div class="detail-risk-label">
+              <span>Risk score</span>
+              <span class="detail-risk-value" id="detailRisk">0</span>
+            </div>
+          </div>
+
+          <p class="detail-summary" id="detailSummary"></p>
+
+          <div class="detail-metrics">
+            <div><span class="dm-label">Casualties</span><strong id="detailCasualties"></strong></div>
+            <div><span class="dm-label">Displaced</span><strong id="detailDisplaced"></strong></div>
+            <div><span class="dm-label">Duration</span><strong id="detailDuration"></strong></div>
+            <div><span class="dm-label">Updated</span><strong id="detailUpdated"></strong></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Key actors</h3>
+            <div id="detailActors" class="actor-list"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Risk trend (12 months)</h3>
+            <canvas id="detailTrend" width="280" height="60"></canvas>
+          </div>
+
+          <div class="detail-section">
+            <h3>Recent events</h3>
+            <div id="detailEvents" class="timeline"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Related conflicts</h3>
+            <div id="detailRelated" class="related-list"></div>
+          </div>
+        </aside>
       </main>
     </div>
 
