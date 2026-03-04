@@ -323,6 +323,52 @@ const conflicts = [
     ],
     related: ["sudan", "drc"],
   },
+  {
+    id: "pakafg",
+    name: "Pakistan – Afghanistan Border",
+    region: "Asia-Pacific",
+    status: "Active",
+    intensity: "High",
+    updated: "2026-03-01",
+    monthsActive: 6,
+    risk: 88,
+    casualties: 4500,
+    displaced: 1800000,
+    coordinates: [33.5, 69.5],
+    actors: ["Pakistan military", "Afghan Taliban", "TTP", "IS-K"],
+    summary:
+      "Escalating cross-border military operations between Pakistan and Afghanistan. Pakistan launched airstrikes against TTP sanctuaries in Afghan territory, provoking Taliban retaliation. IS-K exploits instability with attacks on both sides.",
+    trend: [45, 50, 55, 62, 68, 72, 78, 80, 84, 86, 88, 88],
+    events: [
+      { date: "2026-02-28", text: "Pakistan conducts airstrikes on TTP camps in Paktika province" },
+      { date: "2026-02-15", text: "Taliban retaliatory shelling kills 12 Pakistani soldiers at border post" },
+      { date: "2026-01-20", text: "IS-K suicide bombing targets mosque in Peshawar, 45 dead" },
+    ],
+    related: ["iran"],
+  },
+  {
+    id: "iran",
+    name: "Iran – US / Israel Confrontation",
+    region: "Middle East",
+    status: "Escalating",
+    intensity: "High",
+    updated: "2026-03-02",
+    monthsActive: 8,
+    risk: 92,
+    casualties: 3200,
+    displaced: 950000,
+    coordinates: [32.4, 53.7],
+    actors: ["Iran / IRGC", "United States", "Israel", "Proxy militias"],
+    summary:
+      "Direct military confrontation between Iran and the US-Israel coalition following strikes on Iranian nuclear facilities. IRGC proxy attacks across Iraq, Syria, and the Gulf. Strait of Hormuz shipping disrupted.",
+    trend: [50, 55, 60, 68, 75, 80, 85, 88, 90, 91, 92, 92],
+    events: [
+      { date: "2026-02-25", text: "US strikes IRGC targets in western Iran after Gulf drone attack" },
+      { date: "2026-02-10", text: "Iran-backed militia launches missiles at US base in Iraq" },
+      { date: "2026-01-28", text: "Israeli airstrike on Isfahan nuclear enrichment site" },
+    ],
+    related: ["gaza", "redsea", "lebanon"],
+  },
 ];
 
 /* ── State ───────────────────────────────────────────────────────────── */

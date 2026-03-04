@@ -12,39 +12,46 @@ const DataService = (() => {
   /* ── Search queries per conflict zone ─────────────────────────────── */
 
   const GDELT_QUERIES = {
-    ua: "Ukraine war conflict",
-    sahel: "Sahel Mali Burkina Faso Niger conflict",
-    sudan: "Sudan war conflict Darfur",
-    gaza: "Gaza conflict Israel Palestine",
-    redsea: "Yemen Houthi Red Sea",
-    lebanon: "Lebanon Hezbollah conflict",
-    myanmar: "Myanmar military conflict",
-    drc: "Congo DRC conflict militia",
-    andes: "Colombia conflict FARC guerrilla",
-    haiti: "Haiti gang violence crisis",
-    caucasus: "Armenia Azerbaijan Nagorno-Karabakh",
-    ethiopia: "Ethiopia conflict Tigray Amhara",
-    scs: "South China Sea dispute military",
-    taiwan: "Taiwan strait China military tension",
+    ua: "Ukraine Russia war frontline Donbas",
+    sahel: "Sahel jihadist Mali Burkina Faso Niger military",
+    sudan: "Sudan civil war RSF Darfur Khartoum",
+    gaza: "Gaza Hamas Israel ceasefire humanitarian",
+    redsea: "Houthi Red Sea shipping Yemen attack",
+    lebanon: "Lebanon Hezbollah Israel border",
+    myanmar: "Myanmar junta resistance civil war",
+    drc: "Congo DRC M23 militia Goma",
+    andes: "Colombia FARC ELN guerrilla armed group",
+    haiti: "Haiti gang crisis Port-au-Prince violence",
+    caucasus: "Armenia Azerbaijan Karabakh ceasefire",
+    ethiopia: "Ethiopia Amhara Fano militia Oromia",
+    scs: "South China Sea military Philippines China reef",
+    taiwan: "Taiwan strait China military drill",
+    pakafg: "Pakistan Afghanistan TTP border airstrikes Taliban",
+    iran: "Iran IRGC Israel United States strikes nuclear",
   };
 
   /* ── Country keywords for matching articles to conflict zones ────── */
+  /* Keywords are ordered from most-specific to least. Each keyword is  */
+  /* matched against the article title. More specific terms reduce      */
+  /* false positives (e.g. "houthi" → redsea, not generic "yemen").     */
 
   const COUNTRY_KEYWORDS = {
-    ua: ["ukraine", "kyiv", "kiev"],
-    sahel: ["mali", "burkina", "niger", "sahel"],
-    sudan: ["sudan", "khartoum", "darfur"],
-    gaza: ["gaza", "palestinian", "hamas"],
-    redsea: ["yemen", "houthi", "red sea"],
-    lebanon: ["lebanon", "hezbollah", "beirut"],
-    myanmar: ["myanmar", "burma"],
-    drc: ["congo", "drc", "kinshasa"],
-    andes: ["colombia", "bogota", "farc"],
+    ua: ["ukraine", "kyiv", "zelensky", "donbas", "crimea", "zaporizhzhia"],
+    sahel: ["sahel", "burkina faso", "mali junta", "niger coup", "tuareg"],
+    sudan: ["sudan", "khartoum", "darfur", "rsf", "rapid support"],
+    gaza: ["gaza", "hamas", "palestinian"],
+    redsea: ["houthi", "red sea", "bab el-mandeb"],
+    lebanon: ["hezbollah", "lebanon"],
+    myanmar: ["myanmar", "burma", "junta"],
+    drc: ["congo", "m23", "goma", "kivu"],
+    andes: ["colombia", "farc", "eln"],
     haiti: ["haiti", "port-au-prince"],
-    caucasus: ["armenia", "azerbaijan", "karabakh"],
-    ethiopia: ["ethiopia", "tigray", "amhara"],
-    scs: ["south china sea", "spratlys", "philippines"],
-    taiwan: ["taiwan", "strait"],
+    caucasus: ["karabakh", "armenia", "azerbaijan"],
+    ethiopia: ["ethiopia", "amhara", "fano", "oromia", "tigray"],
+    scs: ["south china sea", "spratly", "scarborough shoal"],
+    taiwan: ["taiwan strait", "taiwan military"],
+    pakafg: ["pakistan afghanistan", "ttp ", "tehrik-i-taliban", "paktika", "waziristan", "is-k", "iskp", "pakistan airstrikes afghan"],
+    iran: ["iran strike", "irgc", "isfahan", "tehran attack", "strait of hormuz", "iran nuclear", "iran israel", "iran us ", "iran united states"],
   };
 
   /* ── Cache ───────────────────────────────────────────────────────── */
@@ -129,16 +136,25 @@ const DataService = (() => {
       byZone[id] = zoneResult.status === "fulfilled" ? zoneResult.value : [];
     });
 
-    // Also assign global articles to zones by keyword matching
+    // Assign each global article to the BEST matching zone only.
+    // Score = number of keyword hits. Ties go to the first match.
     for (const article of globalArticles) {
       const titleLower = (article.title || "").toLowerCase();
+      let bestId = null;
+      let bestScore = 0;
+
       for (const [id, keywords] of Object.entries(COUNTRY_KEYWORDS)) {
-        if (keywords.some((kw) => titleLower.includes(kw))) {
-          if (!byZone[id]) byZone[id] = [];
-          // Avoid duplicates by URL
-          if (!byZone[id].some((a) => a.url === article.url)) {
-            byZone[id].push(article);
-          }
+        const score = keywords.filter((kw) => titleLower.includes(kw)).length;
+        if (score > bestScore) {
+          bestScore = score;
+          bestId = id;
+        }
+      }
+
+      if (bestId && bestScore > 0) {
+        if (!byZone[bestId]) byZone[bestId] = [];
+        if (!byZone[bestId].some((a) => a.url === article.url)) {
+          byZone[bestId].push(article);
         }
       }
     }
