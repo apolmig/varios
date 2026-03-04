@@ -74,13 +74,21 @@ const DataService = (() => {
     }
   }
 
+  /* ── CORS proxy (needed for UCDP which blocks browser origins) ──── */
+
+  const CORS_PROXY = "https://corsproxy.io/?";
+
+  function proxyUrl(url) {
+    return CORS_PROXY + encodeURIComponent(url);
+  }
+
   /* ── Fetch with timeout ──────────────────────────────────────────── */
 
-  async function fetchJSON(url, timeoutMs = 10000) {
+  async function fetchJSON(url, timeoutMs = 10000, opts = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { signal: controller.signal });
+      const res = await fetch(url, { signal: controller.signal, ...opts });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } finally {
@@ -98,10 +106,10 @@ const DataService = (() => {
     // Fetch events aggregated across all pages (up to 3 pages = 3000 events)
     const allEvents = [];
     for (let page = 0; page < 3; page++) {
-      const url =
+      const raw =
         `${UCDP_BASE}/gedevents/${UCDP_VERSION}` +
         `?pagesize=1000&page=${page}&Year=${year}`;
-      const json = await fetchJSON(url, 15000);
+      const json = await fetchJSON(proxyUrl(raw), 15000);
       if (!json.Result || json.Result.length === 0) break;
       allEvents.push(...json.Result);
       if (json.Result.length < 1000) break;
@@ -174,23 +182,27 @@ const DataService = (() => {
 
     const countryNames = [...new Set(Object.values(countries))];
 
-    // Build filter for multiple countries
-    const countryFilter = countryNames
-      .map((c) => `filter[conditions][0][conditions][][field]=country&filter[conditions][0][conditions][][value]=${encodeURIComponent(c)}`)
-      .join("&");
+    // Use POST with JSON body — ReliefWeb's recommended approach (CORS-friendly)
+    const url = `${RW_BASE}/reports?appname=pulse-atlas-observatory`;
+    const body = {
+      preset: "latest",
+      limit,
+      sort: ["date.created:desc"],
+      fields: { include: ["title", "date", "country", "source", "url"] },
+      filter: {
+        operator: "OR",
+        conditions: countryNames.map((name) => ({
+          field: "country",
+          value: name,
+        })),
+      },
+    };
 
-    const url =
-      `${RW_BASE}/reports?appname=pulse-atlas-observatory&limit=${limit}` +
-      `&preset=latest` +
-      `&filter[conditions][0][operator]=OR&${countryFilter}` +
-      `&fields[include][]=title` +
-      `&fields[include][]=date` +
-      `&fields[include][]=country` +
-      `&fields[include][]=source` +
-      `&fields[include][]=url` +
-      `&sort[]=date.created:desc`;
-
-    const json = await fetchJSON(url, 12000);
+    const json = await fetchJSON(url, 12000, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     const reports = (json.data || []).map((r) => ({
       id: r.id,
       title: r.fields?.title || "",
