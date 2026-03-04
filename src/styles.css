@@ -794,17 +794,19 @@ tbody tr.kb-highlight {
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--muted);
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   transition: all var(--transition);
   line-height: 1;
   z-index: 1;
+  gap: 0;
 }
 
 .detail-close:hover {
@@ -1028,6 +1030,128 @@ tbody tr.kb-highlight {
   font-size: 0.7rem;
   color: var(--muted);
   opacity: 0.6;
+}
+
+/* ── Toast notifications ─────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.toast.visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.toast-success { border-left: 3px solid var(--green); }
+.toast-error { border-left: 3px solid var(--high); }
+.toast-info { border-left: 3px solid var(--accent); }
+
+/* ── Shimmer loading ─────────────────────────────────────────────────── */
+
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(90, 228, 255, 0.06), transparent);
+  animation: shimmer-slide 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────── */
+
+.empty-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.empty-state svg {
+  opacity: 0.4;
+  margin-bottom: 4px;
+}
+
+/* ── Refresh button spin ─────────────────────────────────────────────── */
+
+.ghost-btn.refreshing svg {
+  animation: spin 0.8s linear infinite;
+}
+
+.ghost-btn.refreshing {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* ── Last fetch time ─────────────────────────────────────────────────── */
+
+.last-fetch-time {
+  font-size: 0.68rem;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+/* ── Focus visible ───────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+select:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Detail close button — larger hit target + Esc hint ──────────────── */
+
+.detail-close {
+  width: 40px;
+  height: 40px;
+  font-size: 1.3rem;
+  gap: 2px;
+}
+
+.esc-hint {
+  font-size: 0.55rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  line-height: 1;
 }
 
 /* ── Scrollbars ──────────────────────────────────────────────────────── */

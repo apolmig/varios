@@ -335,6 +335,7 @@ let liveReports = {};
 let allRWReports = [];
 let dataSources = { ucdp: false, reliefweb: false };
 let highlightedRow = -1;
+let isRefreshing = false;
 
 /* ── DOM refs ────────────────────────────────────────────────────────── */
 
@@ -386,6 +387,45 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+/* ── Toast notifications ────────────────────────────────────────────── */
+
+function showToast(message, type = "info") {
+  const existing = document.querySelector(".toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("visible"));
+
+  setTimeout(() => {
+    toast.classList.remove("visible");
+    setTimeout(() => toast.remove(), 350);
+  }, 4000);
+}
+
+/* ── Relative time helper ───────────────────────────────────────────── */
+
+function timeAgo(ts) {
+  if (!ts) return "";
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function updateLastFetchDisplay() {
+  const el = $("lastFetchTime");
+  if (!el) return;
+  const ts = DataService.getLastFetchTime();
+  el.textContent = ts ? `Updated ${timeAgo(ts)}` : "";
 }
 
 /* ── Animated counters ───────────────────────────────────────────────── */
@@ -634,6 +674,11 @@ function drawRegionChart(items) {
 
 function updateWatchlist(items) {
   watchlistBody.innerHTML = "";
+
+  // Empty state
+  const emptyEl = $("emptyState");
+  if (emptyEl) emptyEl.style.display = items.length === 0 ? "flex" : "none";
+
   const sorted = items.slice().sort((a, b) =>
     sortAsc
       ? (a[sortColumn] > b[sortColumn] ? 1 : -1)
@@ -1042,9 +1087,19 @@ function updateDataSourceUI() {
 
 /* ── Live data loader ────────────────────────────────────────────────── */
 
-async function loadLiveData() {
+async function loadLiveData(silent = false) {
+  if (isRefreshing) return;
+  isRefreshing = true;
+
   const loader = $("liveLoader");
+  const refreshBtn = $("refreshBtn");
   if (loader) loader.classList.add("active");
+  if (refreshBtn) refreshBtn.classList.add("refreshing");
+
+  // Add shimmer to stat cards on first load
+  if (!silent) {
+    document.querySelectorAll(".stat-card").forEach((c) => c.classList.add("shimmer"));
+  }
 
   try {
     const result = await DataService.fetchAll(conflicts);
@@ -1060,10 +1115,17 @@ async function loadLiveData() {
 
     applyFilters();
     updateDataSourceUI();
+    updateLastFetchDisplay();
+
+    if (silent) showToast("Live data refreshed automatically", "success");
   } catch (err) {
     console.warn("Live data load failed:", err.message);
+    if (silent) showToast("Auto-refresh failed — will retry", "error");
   } finally {
+    isRefreshing = false;
     if (loader) loader.classList.remove("active");
+    if (refreshBtn) refreshBtn.classList.remove("refreshing");
+    document.querySelectorAll(".stat-card").forEach((c) => c.classList.remove("shimmer"));
   }
 }
 
@@ -1075,7 +1137,14 @@ function setup() {
   buildOptions(statusFilter, [...new Set(conflicts.map((c) => c.status))].sort(), "statuses");
   applyFilters();
   updateDataSourceUI();
+  updateLastFetchDisplay();
   loadLiveData();
+
+  // Auto-refresh every 12 hours
+  DataService.scheduleAutoRefresh(() => loadLiveData(true));
+
+  // Update relative time display every 60s
+  setInterval(updateLastFetchDisplay, 60000);
 }
 
 const refreshBtn = $("refreshBtn");

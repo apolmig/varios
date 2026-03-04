@@ -8,7 +8,8 @@ const DataService = (() => {
   const RW_BASE = "https://api.reliefweb.int/v1";
 
   const CACHE_KEY = "pulse_atlas_cache";
-  const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+  const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
+  const LAST_FETCH_KEY = "pulse_atlas_last_fetch";
 
   /* ── Country mappings ────────────────────────────────────────────── */
 
@@ -297,7 +298,26 @@ const DataService = (() => {
         console.warn("ReliefWeb fetch failed:", rwResult.reason?.message);
       }
 
+      // Persist fetch timestamp
+      try {
+        localStorage.setItem(LAST_FETCH_KEY, String(Date.now()));
+      } catch { /* ignore */ }
+
       return { conflicts: enrichedConflicts, reports, sources };
+    },
+
+    getLastFetchTime() {
+      try {
+        const ts = localStorage.getItem(LAST_FETCH_KEY);
+        return ts ? Number(ts) : null;
+      } catch {
+        return null;
+      }
+    },
+
+    scheduleAutoRefresh(callback, intervalMs = 12 * 60 * 60 * 1000) {
+      const id = setInterval(callback, intervalMs);
+      return () => clearInterval(id);
     },
 
     clearCache() {

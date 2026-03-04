@@ -47,6 +47,7 @@
         <div id="dataSourceStatus" class="data-source-status static">
           <span class="ds-static"></span> Loading live data...
         </div>
+        <span id="lastFetchTime" class="last-fetch-time"></span>
         <div id="liveLoader" class="live-loader">
           <div class="loader-spinner"></div>
           <span>Fetching from UCDP &amp; ReliefWeb...</span>
@@ -173,13 +174,23 @@
                 </thead>
                 <tbody id="watchlist"></tbody>
               </table>
+              <div id="emptyState" class="empty-state">
+                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                </svg>
+                <p>No conflicts match your filters</p>
+                <p class="muted">Try adjusting region, intensity, or search terms</p>
+              </div>
             </div>
           </div>
         </section>
 
         <!-- Right: Detail panel (slides in) -->
         <aside id="detailPanel" class="detail-panel">
-          <button id="detailClose" class="detail-close" aria-label="Close">&times;</button>
+          <button id="detailClose" class="detail-close" aria-label="Close">
+            &times;
+            <span class="esc-hint">Esc</span>
+          </button>
 
           <div class="detail-top">
             <h2 id="detailName"></h2>
