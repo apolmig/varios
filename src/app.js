@@ -333,7 +333,7 @@ let sortColumn = "risk";
 let sortAsc = false;
 let liveReports = {};
 let allRWReports = [];
-let dataSources = { ucdp: false, reliefweb: false };
+let dataSources = { gdelt: false };
 let highlightedRow = -1;
 let isRefreshing = false;
 
@@ -754,7 +754,7 @@ function buildNarrative(items) {
         conflict: matchedConflict?.name || report.countries[0] || "Global",
         intensity: matchedConflict?.intensity || "Medium",
         id: matchedConflict?.id || null,
-        source: "reliefweb",
+        source: "gdelt",
         url: report.url,
         rwSource: report.source,
       });
@@ -769,7 +769,7 @@ function buildNarrative(items) {
     const li = document.createElement("li");
     li.className = "anim-feed";
     li.style.setProperty("--i", idx);
-    const isLive = ev.source === "reliefweb";
+    const isLive = ev.source === "gdelt";
     li.innerHTML = `
       <div class="feed-header">
         <span class="feed-dot" style="background:${intensityColor(ev.intensity)}"></span>
@@ -829,12 +829,7 @@ function openDetail(conflict) {
 
   $("detailSummary").textContent = c.summary;
 
-  // Casualties — prefer UCDP data
-  if (c.ucdpDeaths != null && c.ucdpDeaths > 0) {
-    $("detailCasualties").innerHTML = fmt(c.ucdpDeaths) + ' <span class="data-src-tag">UCDP</span>';
-  } else {
-    $("detailCasualties").textContent = c.casualties ? fmt(c.casualties) : "\u2014";
-  }
+  $("detailCasualties").textContent = c.casualties ? fmt(c.casualties) : "\u2014";
   $("detailDisplaced").textContent = c.displaced ? fmt(c.displaced) : "\u2014";
   $("detailDuration").textContent = c.monthsActive + " months";
   $("detailUpdated").textContent = c.updated;
@@ -859,12 +854,7 @@ function openDetail(conflict) {
   const evContainer = $("detailEvents");
   evContainer.innerHTML = "";
 
-  const ucdpEvents = (c.ucdpEvents || []).map((e) => ({
-    date: e.date,
-    text: `${e.sideA} vs ${e.sideB} \u2014 ${e.deaths} fatalities near ${e.location}`,
-    live: true,
-  }));
-  const rwEventsForConflict = (liveReports[c.id] || []).slice(0, 3).map((r) => ({
+  const gdeltEvents = (liveReports[c.id] || []).slice(0, 5).map((r) => ({
     date: r.date,
     text: r.title,
     live: true,
@@ -872,7 +862,7 @@ function openDetail(conflict) {
   }));
   const staticEvents = c.events.map((e) => ({ ...e, live: false }));
 
-  const allDetailEvents = [...ucdpEvents, ...rwEventsForConflict, ...staticEvents]
+  const allDetailEvents = [...gdeltEvents, ...staticEvents]
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 8);
 
@@ -1072,12 +1062,8 @@ function updateDataSourceUI() {
   const el = $("dataSourceStatus");
   if (!el) return;
 
-  const parts = [];
-  if (dataSources.ucdp) parts.push("UCDP (fatalities)");
-  if (dataSources.reliefweb) parts.push("ReliefWeb (reports)");
-
-  if (parts.length > 0) {
-    el.innerHTML = `<span class="ds-live"></span> Live data: ${parts.join(" + ")}`;
+  if (dataSources.gdelt) {
+    el.innerHTML = '<span class="ds-live"></span> Live data: GDELT (global news)';
     el.className = "data-source-status live";
   } else {
     el.innerHTML = '<span class="ds-static"></span> Static data (APIs unavailable)';
