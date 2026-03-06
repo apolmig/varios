@@ -379,7 +379,7 @@ let sortColumn = "risk";
 let sortAsc = false;
 let liveReports = {};
 let allRWReports = [];
-let dataSources = { gdelt: false };
+let dataSources = { live: false };
 let highlightedRow = -1;
 let isRefreshing = false;
 
@@ -800,7 +800,7 @@ function buildNarrative(items) {
         conflict: matchedConflict?.name || report.countries[0] || "Global",
         intensity: matchedConflict?.intensity || "Medium",
         id: matchedConflict?.id || null,
-        source: "gdelt",
+        source: "live",
         url: report.url,
         rwSource: report.source,
       });
@@ -815,7 +815,7 @@ function buildNarrative(items) {
     const li = document.createElement("li");
     li.className = "anim-feed";
     li.style.setProperty("--i", idx);
-    const isLive = ev.source === "gdelt";
+    const isLive = ev.source === "live";
     li.innerHTML = `
       <div class="feed-header">
         <span class="feed-dot" style="background:${intensityColor(ev.intensity)}"></span>
@@ -900,7 +900,7 @@ function openDetail(conflict) {
   const evContainer = $("detailEvents");
   evContainer.innerHTML = "";
 
-  const gdeltEvents = (liveReports[c.id] || []).slice(0, 5).map((r) => ({
+  const newsEvents = (liveReports[c.id] || []).slice(0, 5).map((r) => ({
     date: r.date,
     text: r.title,
     live: true,
@@ -908,7 +908,7 @@ function openDetail(conflict) {
   }));
   const staticEvents = c.events.map((e) => ({ ...e, live: false }));
 
-  const allDetailEvents = [...gdeltEvents, ...staticEvents]
+  const allDetailEvents = [...newsEvents, ...staticEvents]
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 8);
 
@@ -1108,11 +1108,11 @@ function updateDataSourceUI() {
   const el = $("dataSourceStatus");
   if (!el) return;
 
-  if (dataSources.gdelt) {
-    el.innerHTML = '<span class="ds-live"></span> Live data: GDELT (global news)';
+  if (dataSources.live) {
+    el.innerHTML = '<span class="ds-live"></span> Live news: Google News via rss2json';
     el.className = "data-source-status live";
   } else {
-    el.innerHTML = '<span class="ds-static"></span> Static data (APIs unavailable)';
+    el.innerHTML = '<span class="ds-static"></span> Static data (news feed unavailable)';
     el.className = "data-source-status static";
   }
 }

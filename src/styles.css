@@ -1136,14 +1136,7 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-/* ── Detail close button — larger hit target + Esc hint ──────────────── */
-
-.detail-close {
-  width: 40px;
-  height: 40px;
-  font-size: 1.3rem;
-  gap: 2px;
-}
+/* ── Esc hint on detail close button ──────────────────────────────────── */
 
 .esc-hint {
   font-size: 0.55rem;

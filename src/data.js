@@ -1,9 +1,10 @@
 /* ── Pulse Atlas – Live Data Service ─────────────────────────────────── */
-/* Fetches live news from GDELT DOC 2.0 API (free, CORS-enabled, no auth) */
-/* Falls back to static data gracefully if API is unavailable */
+/* Fetches live news via rss2json.com + Google News RSS feeds            */
+/* Falls back to static data gracefully if service is unavailable       */
 
 const DataService = (() => {
-  const GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc";
+  const RSS2JSON = "https://api.rss2json.com/v1/api.json?rss_url=";
+  const GNEWS_RSS = "https://news.google.com/rss/search?hl=en&gl=US&ceid=US:en&q=";
 
   const CACHE_KEY = "pulse_atlas_cache";
   const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
@@ -11,47 +12,44 @@ const DataService = (() => {
 
   /* ── Search queries per conflict zone ─────────────────────────────── */
 
-  const GDELT_QUERIES = {
-    ua: "Ukraine Russia war frontline Donbas",
-    sahel: "Sahel jihadist Mali Burkina Faso Niger military",
-    sudan: "Sudan civil war RSF Darfur Khartoum",
-    gaza: "Gaza Hamas Israel ceasefire humanitarian",
-    redsea: "Houthi Red Sea shipping Yemen attack",
-    lebanon: "Lebanon Hezbollah Israel border",
-    myanmar: "Myanmar junta resistance civil war",
-    drc: "Congo DRC M23 militia Goma",
-    andes: "Colombia FARC ELN guerrilla armed group",
-    haiti: "Haiti gang crisis Port-au-Prince violence",
-    caucasus: "Armenia Azerbaijan Karabakh ceasefire",
-    ethiopia: "Ethiopia Amhara Fano militia Oromia",
-    scs: "South China Sea military Philippines China reef",
-    taiwan: "Taiwan strait China military drill",
-    pakafg: "Pakistan Afghanistan TTP border airstrikes Taliban",
-    iran: "Iran IRGC Israel United States strikes nuclear",
+  const NEWS_QUERIES = {
+    ua:      "Ukraine+war+frontline",
+    sahel:   "Sahel+Mali+Burkina+Faso+conflict",
+    sudan:   "Sudan+war+RSF+Darfur",
+    gaza:    "Gaza+war+Hamas",
+    redsea:  "Houthi+Red+Sea+attack",
+    lebanon: "Lebanon+Hezbollah+conflict",
+    myanmar: "Myanmar+junta+civil+war",
+    drc:     "Congo+DRC+M23+militia",
+    andes:   "Colombia+FARC+ELN+conflict",
+    haiti:   "Haiti+gang+crisis+violence",
+    caucasus:"Armenia+Azerbaijan+conflict",
+    ethiopia:"Ethiopia+Amhara+conflict",
+    scs:     "South+China+Sea+military",
+    taiwan:  "Taiwan+strait+China+military",
+    pakafg:  "Pakistan+Afghanistan+TTP+war",
+    iran:    "Iran+IRGC+Israel+strikes",
   };
 
-  /* ── Country keywords for matching articles to conflict zones ────── */
-  /* Keywords are ordered from most-specific to least. Each keyword is  */
-  /* matched against the article title. More specific terms reduce      */
-  /* false positives (e.g. "houthi" → redsea, not generic "yemen").     */
+  /* ── Country keywords for matching global articles to zones ────────── */
 
   const COUNTRY_KEYWORDS = {
-    ua: ["ukraine", "kyiv", "zelensky", "donbas", "crimea", "zaporizhzhia"],
-    sahel: ["sahel", "burkina faso", "mali junta", "niger coup", "tuareg"],
-    sudan: ["sudan", "khartoum", "darfur", "rsf", "rapid support"],
-    gaza: ["gaza", "hamas", "palestinian"],
-    redsea: ["houthi", "red sea", "bab el-mandeb"],
+    ua:      ["ukraine", "kyiv", "zelensky", "donbas", "crimea"],
+    sahel:   ["sahel", "burkina faso", "mali", "niger"],
+    sudan:   ["sudan", "khartoum", "darfur", "rsf"],
+    gaza:    ["gaza", "hamas", "palestinian"],
+    redsea:  ["houthi", "red sea"],
     lebanon: ["hezbollah", "lebanon"],
-    myanmar: ["myanmar", "burma", "junta"],
-    drc: ["congo", "m23", "goma", "kivu"],
-    andes: ["colombia", "farc", "eln"],
-    haiti: ["haiti", "port-au-prince"],
-    caucasus: ["karabakh", "armenia", "azerbaijan"],
-    ethiopia: ["ethiopia", "amhara", "fano", "oromia", "tigray"],
-    scs: ["south china sea", "spratly", "scarborough shoal"],
-    taiwan: ["taiwan strait", "taiwan military"],
-    pakafg: ["pakistan afghanistan", "ttp ", "tehrik-i-taliban", "paktika", "waziristan", "is-k", "iskp", "pakistan airstrikes afghan"],
-    iran: ["iran strike", "irgc", "isfahan", "tehran attack", "strait of hormuz", "iran nuclear", "iran israel", "iran us ", "iran united states"],
+    myanmar: ["myanmar", "burma"],
+    drc:     ["congo", "m23", "goma", "kivu"],
+    andes:   ["colombia", "farc", "eln"],
+    haiti:   ["haiti"],
+    caucasus:["karabakh", "armenia azerbaijan"],
+    ethiopia:["ethiopia", "amhara", "fano", "tigray"],
+    scs:     ["south china sea", "spratly"],
+    taiwan:  ["taiwan strait", "taiwan military"],
+    pakafg:  ["pakistan afghanistan", "ttp", "waziristan", "is-k", "iskp"],
+    iran:    ["irgc", "iran strike", "iran israel", "isfahan", "hormuz", "iran nuclear"],
   };
 
   /* ── Cache ───────────────────────────────────────────────────────── */
@@ -74,9 +72,7 @@ const DataService = (() => {
         CACHE_KEY + "_" + key,
         JSON.stringify({ data, ts: Date.now() })
       );
-    } catch {
-      // Storage full or unavailable — ignore
-    }
+    } catch { /* Storage full or unavailable */ }
   }
 
   /* ── Fetch with timeout ──────────────────────────────────────────── */
@@ -93,85 +89,76 @@ const DataService = (() => {
     }
   }
 
-  /* ── GDELT DOC 2.0: Global news articles ─────────────────────────── */
+  /* ── Fetch news for a single zone via rss2json + Google News ─────── */
 
-  async function fetchGDELTArticles(query, maxRecords = 15) {
-    const url =
-      `${GDELT_BASE}?query=${encodeURIComponent(query)}` +
-      `&mode=ArtList&format=json&maxrecords=${maxRecords}` +
-      `&timespan=2w&sort=DateDesc`;
-    const json = await fetchJSON(url, 12000);
-    return (json.articles || []).map((a) => ({
-      title: a.title || "",
-      url: a.url || "",
-      source: a.domain || a.source || "",
-      date: a.seendate ? a.seendate.slice(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3") : "",
-      image: a.socialimage || "",
-      language: a.language || "English",
+  function stripHtml(str) {
+    const el = document.createElement("div");
+    el.innerHTML = str;
+    return el.textContent || "";
+  }
+
+  function extractDomain(url) {
+    try { return new URL(url).hostname.replace("www.", ""); }
+    catch { return ""; }
+  }
+
+  async function fetchZoneNews(zoneId, query, maxItems = 8) {
+    const rssUrl = GNEWS_RSS + query;
+    const apiUrl = RSS2JSON + encodeURIComponent(rssUrl);
+    const json = await fetchJSON(apiUrl, 12000);
+
+    if (json.status !== "ok" || !json.items) return [];
+
+    return json.items.slice(0, maxItems).map((item) => ({
+      title: stripHtml(item.title || ""),
+      url: item.link || "",
+      source: item.author || extractDomain(item.link) || "",
+      date: item.pubDate ? item.pubDate.split(" ")[0] : "",
+      zoneId,
     }));
   }
 
-  async function fetchAllGDELT() {
-    const cacheKey = "gdelt_all";
+  /* ── Fetch all zones ─────────────────────────────────────────────── */
+
+  async function fetchAllNews() {
+    const cacheKey = "news_all";
     const cached = getCache(cacheKey);
     if (cached) return cached;
 
-    // Fetch a global conflict query + per-zone queries in parallel
-    const globalQuery = "conflict war crisis humanitarian casualties";
-    const zoneIds = Object.keys(GDELT_QUERIES);
-
-    const fetches = [
-      fetchGDELTArticles(globalQuery, 20),
-      ...zoneIds.map((id) => fetchGDELTArticles(GDELT_QUERIES[id], 8)),
-    ];
-
-    const results = await Promise.allSettled(fetches);
-
-    const globalArticles = results[0].status === "fulfilled" ? results[0].value : [];
-
-    // Map articles by conflict zone
+    const zoneIds = Object.keys(NEWS_QUERIES);
     const byZone = {};
-    zoneIds.forEach((id, idx) => {
-      const zoneResult = results[idx + 1];
-      byZone[id] = zoneResult.status === "fulfilled" ? zoneResult.value : [];
-    });
+    const allArticles = [];
 
-    // Assign each global article to the BEST matching zone only.
-    // Score = number of keyword hits. Ties go to the first match.
-    for (const article of globalArticles) {
-      const titleLower = (article.title || "").toLowerCase();
-      let bestId = null;
-      let bestScore = 0;
-
-      for (const [id, keywords] of Object.entries(COUNTRY_KEYWORDS)) {
-        const score = keywords.filter((kw) => titleLower.includes(kw)).length;
-        if (score > bestScore) {
-          bestScore = score;
-          bestId = id;
-        }
-      }
-
-      if (bestId && bestScore > 0) {
-        if (!byZone[bestId]) byZone[bestId] = [];
-        if (!byZone[bestId].some((a) => a.url === article.url)) {
-          byZone[bestId].push(article);
-        }
+    // Fetch in batches of 4 to respect rate limits
+    for (let i = 0; i < zoneIds.length; i += 4) {
+      const batch = zoneIds.slice(i, i + 4);
+      const results = await Promise.allSettled(
+        batch.map((id) => fetchZoneNews(id, NEWS_QUERIES[id]))
+      );
+      batch.forEach((id, idx) => {
+        const articles = results[idx].status === "fulfilled" ? results[idx].value : [];
+        byZone[id] = articles;
+        allArticles.push(...articles);
+      });
+      // Small delay between batches to avoid throttling
+      if (i + 4 < zoneIds.length) {
+        await new Promise((r) => setTimeout(r, 400));
       }
     }
 
-    const data = { globalArticles, byZone };
+    const data = { byZone, allArticles };
     setCache(cacheKey, data);
     return data;
   }
 
-  /* ── Map GDELT articles into the report format app.js expects ──── */
+  /* ── Map articles into the report format app.js expects ──────────── */
 
-  function mapArticlesToReports(gdeltData, conflicts) {
+  function mapArticlesToReports(newsData, conflicts) {
     const mapped = {};
     for (const conflict of conflicts) {
-      const articles = gdeltData.byZone[conflict.id] || [];
+      const articles = newsData.byZone[conflict.id] || [];
       mapped[conflict.id] = articles.slice(0, 5).map((a, i) => ({
-        id: `gdelt_${conflict.id}_${i}`,
+        id: `news_${conflict.id}_${i}`,
         title: a.title,
         date: a.date,
         countries: [conflict.name],
@@ -182,34 +169,23 @@ const DataService = (() => {
     return mapped;
   }
 
-  function buildAllReportsList(gdeltData, conflicts) {
-    // Combine global + zone articles, deduplicate, sort by date
+  function buildAllReportsList(newsData, conflicts) {
     const seen = new Set();
     const all = [];
 
-    const addArticle = (a, conflictId) => {
-      if (seen.has(a.url)) return;
-      seen.add(a.url);
-      const conflict = conflicts.find((c) => c.id === conflictId);
-      all.push({
-        id: `gdelt_${all.length}`,
-        title: a.title,
-        date: a.date,
-        countries: conflict ? [conflict.name] : [],
-        source: a.source,
-        url: a.url,
-      });
-    };
-
-    // Zone articles first (more relevant)
     for (const conflict of conflicts) {
-      for (const a of (gdeltData.byZone[conflict.id] || [])) {
-        addArticle(a, conflict.id);
+      for (const a of (newsData.byZone[conflict.id] || [])) {
+        if (seen.has(a.url)) continue;
+        seen.add(a.url);
+        all.push({
+          id: `news_${all.length}`,
+          title: a.title,
+          date: a.date,
+          countries: [conflict.name],
+          source: a.source,
+          url: a.url,
+        });
       }
-    }
-    // Then global
-    for (const a of gdeltData.globalArticles || []) {
-      addArticle(a, null);
     }
 
     return all.sort((a, b) => b.date.localeCompare(a.date));
@@ -218,22 +194,18 @@ const DataService = (() => {
   /* ── Public API ──────────────────────────────────────────────────── */
 
   return {
-    /**
-     * Fetch all live data and return enrichment objects.
-     * Returns { conflicts, reports, sources } — same shape as before.
-     */
     async fetchAll(baseConflicts) {
-      const sources = { gdelt: false, ucdp: false, reliefweb: false };
+      const sources = { live: false };
       let reports = {};
       let rwReports = [];
 
       try {
-        const gdeltData = await fetchAllGDELT();
-        reports = mapArticlesToReports(gdeltData, baseConflicts);
-        rwReports = buildAllReportsList(gdeltData, baseConflicts);
-        sources.gdelt = true;
+        const newsData = await fetchAllNews();
+        reports = mapArticlesToReports(newsData, baseConflicts);
+        rwReports = buildAllReportsList(newsData, baseConflicts);
+        sources.live = true;
       } catch (err) {
-        console.warn("GDELT fetch failed:", err.message);
+        console.warn("News fetch failed:", err.message);
       }
 
       // Persist fetch timestamp
@@ -252,9 +224,7 @@ const DataService = (() => {
       try {
         const ts = localStorage.getItem(LAST_FETCH_KEY);
         return ts ? Number(ts) : null;
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     },
 
     scheduleAutoRefresh(callback, intervalMs = 12 * 60 * 60 * 1000) {
@@ -267,9 +237,7 @@ const DataService = (() => {
         Object.keys(localStorage)
           .filter((k) => k.startsWith(CACHE_KEY))
           .forEach((k) => localStorage.removeItem(k));
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     },
   };
 })();
